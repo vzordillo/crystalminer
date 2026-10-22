@@ -19,3 +19,31 @@ Exception: the lettering on signs.
 The glyph images crystalminer_{b52,c44,b34,b26,b17,r24,r20,r18,r16}_*
 (and the lettering in the generated figures) are rendered from the DejaVu fonts, which are
 derived from Bitstream Vera. See LICENSE.fonts for their licence, which must be kept with them.
+
+The generated exhibit atom textures (crystalminer_atom_*.png) use the Jmol element-colour
+convention; the colour values are factual data from ASE's jmol_colors table, not artwork.
+
+Materials Project sample data: CC BY 4.0
+----------------------------------------
+The three baked crystal structures in data/mpcontribs/, and the files generated from them
+(mods/crystalminer/exhibit_data.lua and tests/fixtures/exhibit_records.lua), are not covered by
+the CC BY-SA licence above. They were fetched from the /structures/ endpoint of MPContribs, the
+contribution platform of the Materials Project (https://materialsproject.org,
+https://contribs.materialsproject.org):
+
+    CaTiO3      structure 61ee26ff6b5f3ffa9e3b0d18
+    SrTiO3      structure 602ec159388c44668e267444
+    MgMn4O8-0   structure 5f1d4a5dea67c7d47f01af7c
+
+The live exhibits fetch further structures from the same API while the game runs; each exhibit's
+plaque names its Materials Project record and MPContribs as the source.
+
+MPContribs publishes its public projects under the Creative Commons Attribution 4.0
+International licence (CC BY 4.0): https://creativecommons.org/licenses/by/4.0/
+(On 22 October 2026 the public MPContribs /projects/ listing gave the licence "CCA4", i.e.
+CC BY 4.0, for all 72 projects, and the three structures above can be read without an API key.
+The project each structure belongs to was not recorded when they were fetched.)
+
+Credit: data from the Materials Project and its MPContribs platform. A. Jain et al., "The
+Materials Project: A materials genome approach to accelerating materials innovation",
+APL Materials 1, 011002 (2013).

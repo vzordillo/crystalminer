@@ -19,7 +19,7 @@ local GROUND_Y = 0
 local SPAWN = content.lobby.spawn
 local LABEL_RANGE = 30
 
-crystalminer = { S = S, L = L, G = G, content = content, storage = storage }
+crystalminer = { S = S, L = L, G = G, content = content, storage = storage, http = http }
 local cm = crystalminer
 dofile(modpath .. "/sounds.lua") -- before the nodes: they take their sounds from cm.node_sounds
 
@@ -963,7 +963,8 @@ core.register_globalstep(function(dtime)
 			end
 			update_labels(player)
 			-- Sends packets only when what the player should see changed.
-			sync_markers(name, region_near(player:get_pos()))
+			local pos = player:get_pos()
+			sync_markers(name, region_near(pos) or (crystalminer.exhibit_live_at and crystalminer.exhibit_live_at(pos)))
 		end
 	end
 end)
@@ -1663,6 +1664,26 @@ if not tutor_on then
 	core.log("action", "[crystalminer] Tutor off: " .. (http and tutor_off or "add crystalminer to secure.http_mods"))
 end
 
+local function ask_tutor(name, param, source)
+	if not tutor_on then return false, "The tutor is not set up on this server. See the README." end
+	param = param:trim()
+	if param == "" then return false, "Please type a question first." end
+	local too_long = Tutor.check_length(param)
+	if too_long then return false, too_long end
+	local ok, busy = Tutor.try_start(tutor_limits, name, now_s())
+	if not ok then return false, busy end
+	local player = core.get_player_by_name(name)
+	local live = player and region_near(player:get_pos())
+	if source then say(name, source, "#A0A0A0") end
+	Tutor.send(http, tutor_cfg, Tutor.ask_request(tutor_cfg, param, progress(name).tier, live and live.area.name),
+		core.write_json, core.parse_json, function(text, err)
+			Tutor.finish(tutor_limits, name)
+			say(name, core.colorize("#D080FF", "Tutor: ") .. (text and Tutor.strip_label(text) or err))
+		end)
+	return true
+end
+cm.ask_tutor = ask_tutor
+
 cmd("symmetry", {
 	params = "<description>",
 	description = "Give the Free Lab a symmetry, e.g. /symmetry a fourfold axis with mirrors",
@@ -1749,6 +1770,7 @@ cm.in_pad = function(pos) return in_box(pos, PAD_BUILD) or in_box(pos, PAD_RESUL
 cm.WORLD_VERSION = WORLD_VERSION
 cm.GUIDES = dofile(modpath .. "/guides.lua")
 cm.SG = dofile(modpath .. "/signs.lua")
+dofile(modpath .. "/npc.lua")
 dofile(modpath .. "/doors.lua")
 dofile(modpath .. "/lobby.lua")
 dofile(modpath .. "/worlds.lua")
@@ -1757,6 +1779,8 @@ dofile(modpath .. "/next_hint.lua")
 dofile(modpath .. "/learning.lua")
 dofile(modpath .. "/modes.lua")
 dofile(modpath .. "/museum.lua")
+dofile(modpath .. "/exhibits.lua")
+dofile(modpath .. "/exhibit_dynamic.lua")
 dofile(modpath .. "/tour.lua")
 dofile(modpath .. "/furniture.lua")
 dofile(modpath .. "/tutor_window.lua") -- after furniture.lua: Prism sits on its information desk

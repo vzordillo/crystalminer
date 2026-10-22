@@ -288,6 +288,28 @@ local function run()
 		end
 	end
 	check("portal hall: one portal per world, each with its destination", portals == #cm.regions, tostring(portals))
+	local exhibit_portals = 0
+	for _, p in ipairs(cm.exhibit_portals or {}) do
+		local node = core.get_node(p.pos)
+		if node.name == "crystalminer:teleporter" and core.get_meta(p.pos):get_string("target") == p.target then exhibit_portals = exhibit_portals + 1 end
+	end
+	check("portal hall: six random exhibit portals exist", exhibit_portals == 6, tostring(exhibit_portals))
+	local exhibit_command = core.registered_chatcommands.exhibit
+	check("random exhibits expose entry flow and list-only command", cm.exhibit_enter and exhibit_command
+		and exhibit_command.params == "list")
+	check("exhibit migration stamp is current", cm.storage:get_string("exhibit_version") == cm.exhibit_version,
+		cm.storage:get_string("exhibit_version"))
+	-- The exhibits arrive in existing worlds through their own stamp (exhibit_version), and are rebuilt with everything else (exhibits.lua's on_build) when WORLD_VERSION is raised, as it was for Prism's desk and billboard.
+	check("world version is the current one", cm.storage:get_string("world_version") == cm.WORLD_VERSION,
+		cm.WORLD_VERSION .. "/" .. cm.storage:get_string("world_version"))
+	for _, room in ipairs(cm.exhibit_rooms or {}) do
+		local entry = cm.exhibit_dynamic_records and cm.exhibit_dynamic_records[room.number]
+		local floor = core.get_node({ x = room.min[1] + 1, y = 0, z = room.min[3] + 1 }).name
+		local roof = core.get_node({ x = room.min[1] + 1, y = room.min[2] + room.size[2] - 1, z = room.min[3] + 1 }).name
+		check("random exhibit " .. room.id .. " shell", floor == "crystalminer:stone_brick" and roof == "crystalminer:roof_glass")
+		check("random exhibit " .. room.id .. " live lookup", entry and cm.exhibit_live_at({ x = room.min[1] + 1, y = 1, z = room.min[3] + 1 }) == entry.room_data.live)
+	end
+	check("structure exhibit live lookup leaves rooms", not cm.exhibit_live_at({ x = 0, y = 0, z = 0 }))
 	check("every world has a portal back to the museum", backs == #cm.regions,
 		tostring(backs) .. " " .. table.concat(missing_backs, ", "))
 	check("every world's entrance arch carries its name", banners == #cm.regions, tostring(banners))
@@ -326,6 +348,30 @@ local function run()
 	local stale = core.add_entity({ x = 0, y = 6, z = -20 }, "crystalminer:sign",
 		core.serialize({ format = "label", text = "old", v = "an earlier build" }))
 	check("a sign from an earlier build of the world removes itself", stale == nil or stale:get_pos() == nil)
+	-- NPCs: added once each, never twice, and one saved by an earlier version removes itself.
+	local function npc_counts()
+		local info, visitors = 0, 0
+		for _, e in pairs(core.luaentities) do
+			if e.name == "crystalminer:guide_npc" and e.object:get_pos() then info = info + 1 end
+			if e.name == "crystalminer:museum_visitor" and e.object:get_pos() then visitors = visitors + 1 end
+		end
+		return info, visitors
+	end
+	cm.npc_refresh(true)
+	cm.npc_refresh(true)
+	local info_n, visitor_n = npc_counts()
+	check("NPCs: one information-desk NPC and eight visitors, no duplicates", info_n == 1 and visitor_n == 8,
+		info_n .. " " .. visitor_n)
+	local old_npc = core.add_entity({ x = 0, y = 1, z = -20 }, "crystalminer:museum_visitor",
+		core.serialize({ slot = 1, home = { x = 0, y = 1, z = -20 } }))
+	check("NPCs: one saved in the map by an earlier version removes itself", old_npc == nil or old_npc:get_pos() == nil)
+	local blocked = {}
+	for _, p in ipairs(cm.npc_places) do
+		core.load_area({ x = p.x, y = p.y, z = p.z }, { x = p.x, y = p.y + 1, z = p.z })
+		local here, above = core.get_node(p).name, core.get_node({ x = p.x, y = p.y + 1, z = p.z }).name
+		if here ~= "air" or above ~= "air" then blocked[#blocked + 1] = core.pos_to_string(p) .. " " .. here .. "/" .. above end
+	end
+	check("NPCs: every NPC stands in free space, not inside furniture", #blocked == 0, table.concat(blocked, ", "))
 	-- Guides: a first arrival marks the place as guided (the window opens a moment later), and the
 	-- window carries the steps; the Try-it Pad has its labels.
 	for _, f in ipairs(cm.on_area) do f("guidetester", "fourfold_tower", live("fourfold_tower")) end
@@ -548,6 +594,13 @@ local function run()
 	check("markers: another region replaces them", count() == #live("translation_hall").dots, tostring(count()))
 	cm.sync_markers("markers", nil)
 	check("markers: leaving removes them all", count() == 0 and cm.markers.markers == nil, tostring(count()))
+	local exhibit_live = cm.exhibit_live_at({x=-220, y=3, z=-7})
+	cm.sync_markers("markers", exhibit_live)
+	check("markers: entering an exhibit shows every exhibit dot", exhibit_live
+		and count() == #exhibit_live.dots,
+		tostring(count()) .. " of " .. tostring(exhibit_live and #exhibit_live.dots or 0))
+	cm.sync_markers("markers", nil)
+	check("markers: leaving an exhibit removes its dots", count() == 0 and cm.markers.markers == nil, tostring(count()))
 	cm.sync_markers("newbie", kl)
 	check("markers: a locked region shows none", count() == 0 and cm.markers.newbie == nil, tostring(count()))
 	check("markers: every spawner was for the player, endless, at one point", defs_ok)
@@ -702,7 +755,7 @@ core.register_globalstep(function()
 	end
 end)
 
-cm.when_ready(function()
+cm.when_exhibits_ready(function()
 	-- Signs placed while the world was built are stored in the map until a player comes near.
 	-- Keep the places the checks look at loaded, so their signs wake up as they would for a player.
 	local spots = { { x = 0, y = 5, z = -30 } }

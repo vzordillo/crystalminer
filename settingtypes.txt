@@ -22,6 +22,13 @@ crystalminer.tutor_api_key (Tutor: API key) string
 # OpenAI-compatible provider: seconds to wait for an answer. Local models on a slow CPU may need more.
 crystalminer.tutor_timeout (Tutor: timeout in seconds) int 60 5 600
 
+# Materials Project MPContribs key for teacher-created live exhibits. The key is never shown or logged.
+# The server must also list crystalminer in secure.http_mods. CRYSTALMINER_MP_API_KEY is used when empty.
+crystalminer.mp_api_key (Live exhibit API key) string
+
+# MPContribs API base URL for live exhibits.
+crystalminer.mp_api_url (Live exhibit API URL) string https://contribs-api.materialsproject.org
+
 # OpenAI-compatible provider: longest answer in tokens. When not set, /ask uses 400 and /symmetry 200.
 # Models that think before answering need more, for example 2000; a cut-off answer is not shown.
 crystalminer.tutor_max_tokens (Tutor: maximum answer length in tokens) int 400 16 4096

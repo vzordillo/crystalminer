@@ -89,6 +89,15 @@ local function add_reference(lines)
 	lines[#lines + 1] = ""
 	lines[#lines + 1] = "Introduction (tier 0):"
 	for _, l in ipairs(content.intro) do lines[#lines + 1] = "- " .. l end
+	lines[#lines + 1] = ""
+	lines[#lines + 1] = "Museum navigation:"
+	lines[#lines + 1] = "- The foyer is the starting area and contains the welcome board."
+	lines[#lines + 1] = "- Visitor information is east of the foyer and contains the information desk."
+	lines[#lines + 1] = "- The Workshop is west of the foyer and contains the Try-it Pad."
+	lines[#lines + 1] = "- Gallery 1 is north of the foyer and teaches translation, rotation, reflection and inversion."
+	lines[#lines + 1] = "- Beyond Gallery 1 are Gallery 2, the history of crystallography, and Gallery 3, crystals at the atomic scale."
+	lines[#lines + 1] = "- The Portal Hall is furthest north and contains a portal to each symmetry world."
+	lines[#lines + 1] = "- The /quiz command unlocks tiers; /tour starts a guided tour; /guide lists commands; /spawn returns to the foyer."
 	for _, a in ipairs(content.regions) do
 		lines[#lines + 1] = ""
 		lines[#lines + 1] = "Region: " .. a.name .. " (tier " .. a.tier .. ", symmetry "
@@ -538,11 +547,21 @@ function T.http_error_message(code)
 	return "The tutor is unavailable."
 end
 
+local function error_detail(response)
+	local err = response and response.error
+	local message = type(err) == "table" and err.message or nil
+	if type(message) ~= "string" or message == "" then return nil end
+	return message:gsub("[%c\r\n]", " "):sub(1, 240)
+end
+
 --- Text of a Chat Completions response, or nil and a message for the player. code is the HTTP status.
 function T.openai_response_text(response, code)
 	if type(response) ~= "table" then return nil, "The tutor sent an unreadable reply." end
 	code = tonumber(code) or 200
-	if response.error ~= nil or code >= 400 then return nil, T.http_error_message(code) end
+	if response.error ~= nil or code >= 400 then
+		local detail = error_detail(response)
+		return nil, T.http_error_message(code) .. (detail and ": " .. detail or "")
+	end
 	local choice = type(response.choices) == "table" and response.choices[1]
 	if type(choice) ~= "table" then return nil, "The tutor sent an unreadable reply." end
 	-- A cut-off reply may be half a sentence or broken JSON, so it is not shown.
@@ -600,7 +619,7 @@ function T.openai_fetch(http, cfg, body, encode, decode, done)
 		local okd, parsed = pcall(decode, res.data or "", nil, true)
 		if not okd or parsed == nil then
 			if code >= 400 then
-				done(nil, T.http_error_message(code), retryable)
+				done(nil, T.http_error_message(code) .. " (the server response was not readable)", retryable)
 			else
 				done(nil, "The tutor sent an unreadable reply.")
 			end
